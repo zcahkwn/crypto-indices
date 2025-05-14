@@ -163,5 +163,5 @@ cython_debug/
 **/**/.DS_Store
 
 *key.json
-data/
+# data/
 archive/
