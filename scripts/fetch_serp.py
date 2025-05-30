@@ -2,8 +2,8 @@ from serpapi import GoogleSearch
 import pandas as pd
 import matplotlib.pyplot as plt
 from nodiensenv.constants import DATA_DIR, FIGURE_DIR
+from nodiensenv.settings import SERP_API
 
-API_KEY = "cc03de0acd0af0110207ab0d6a06f06f48f02d1cd4e480ca4e2086865d810814"
 coin = "DOGE"
 keywords = ["dogecoin"]
 years = [2021, 2022, 2023, 2024]
@@ -24,7 +24,7 @@ for year in years:
             params = {
                 "engine": "google_trends",
                 "q": kw,
-                "api_key": API_KEY,
+                "api_key": SERP_API,
                 "date": f"{start_date} {end_date}",
                 "hl": "en",
                 "tz": 0,
