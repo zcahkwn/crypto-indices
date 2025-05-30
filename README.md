@@ -59,18 +59,27 @@ pip install toml
 pip install -e ".[dev]"
 ```
 
+---
 
 ## Set up the environmental variables
 
 put your APIs in `.env`:
 
 ```
-GOOGLE_TREND_API="cc03de0acd0af0110207ab0d6a06f06f48f02d1cd4e480ca4e2086865d810814"
-BTC_PRICE_API="39197365d7df7f30de03f1e2b0db9e6808f30a23cc73b621ce5cebe3ec576352"
+SERP_API = "xxx"
+
+COINMARKETCAP_API = "xxx"
+
+CRYPTOCOMPARE_API = "xxx"
 ```
 
 
 ## Fetch data 
 ```
-python scripts/fetch_bitcoin.py
+python scripts/fetch_serp.py
+```
+
+## Plot and analyse data
+```
+python scripts/plot_trend_price.py
 ```
