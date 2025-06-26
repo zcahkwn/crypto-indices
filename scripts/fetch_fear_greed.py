@@ -1,9 +1,8 @@
 from fear_and_greed import FearAndGreedIndex
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from datetime import datetime
-from nodiensenv.constants import DATA_DIR, FIGURE_DIR
+from nodiensenv.constants import DATA_DIR
 
 fng = FearAndGreedIndex()
 
@@ -22,9 +21,10 @@ df["fear_greed_log_return"] = (
     df["fear_greed_index"].pct_change().apply(lambda x: np.log(1 + x))
 )
 
-df.to_csv(DATA_DIR / "fear_greed_index.csv", index=False)
+df.to_csv(DATA_DIR / "fear_greed_index_new.csv", index=False)
 
 # # Plotting the Fear and Greed Index
+# import matplotlib.pyplot as plt
 # plt.figure(figsize=(12, 6))
 # plt.plot(df["date"], df["value"], label="Fear and Greed Index", color='blue')
 # plt.title("Fear and Greed Index Over Time")

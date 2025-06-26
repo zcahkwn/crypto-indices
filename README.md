@@ -75,20 +75,35 @@ CRYPTOCOMPARE_API = "xxx"
 
 
 ## Fetch data 
+
+Fetch Google search data from SerpAPI:
 ```
 python scripts/fetch_serp.py
+```
 
+Fetch fear and greed data:
+```
 python scripts/fetch_fear_greed.py
+```
 
+Fetch OHLC data from cyptocompare (only for BTC, ETH, LTC, DOGE, BCH):
+```
 python scripts/fetch_cryptocompare.py
 ```
 
-Coingecko (only data from the past 1 year is available):
+Fetch OHLC data from Coingecko (only data from the past 1 year is available)(for XRP, SOL, BNB, etc):
 ```
 python scripts/fetch_coingecko.py  
 ```
 
+Fetch US stock market fear and greed index:
+```
+python scripts/fetch_finhacker.py
+```
+
 ## Plot and analyse data
+
+Plot and analyse correlation between Google search trend and market data
 ```
 python scripts/plot_analyse_bullbear.py
 ```
