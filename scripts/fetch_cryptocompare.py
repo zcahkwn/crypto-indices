@@ -2,6 +2,7 @@ import os
 import time
 import requests
 import pandas as pd
+import numpy as np
 from datetime import datetime
 from nodiensenv.constants import DATA_DIR
 from nodiensenv.settings import CRYPTOCOMPARE_API
@@ -14,8 +15,9 @@ BASE_PRICE_URL = "https://min-api.cryptocompare.com/data/v2/histoday"
 BASE_SUPPLY_URL = "https://min-api.cryptocompare.com/data/blockchain/histo/day"
 SYMBOL = "BTC"
 VS_CURRENCY = "USD"
-# Date range: 2021-01-01 → today
-START_TS = int(datetime(2021, 1, 1).timestamp())
+# Date range: 2013-01-01 → today
+START_TS = int(datetime(2013, 1, 1).timestamp())
+# END_TS = int(datetime(2018, 2, 1).timestamp())
 END_TS = int(datetime.utcnow().timestamp())
 
 
@@ -76,11 +78,35 @@ if __name__ == "__main__":
         .set_index("date")
         .sort_index()
     )
+    df["price_log_return"] = df["close"].pct_change().apply(lambda x: np.log(1 + x))
+    df["volumefrom_log_return"] = (
+        df["volumefrom"].pct_change().apply(lambda x: np.log(1 + x))
+    )
+    df["market_cap_log_return"] = (
+        df["market_cap"].pct_change().apply(lambda x: np.log(1 + x))
+    )
+    volatility_days = [5, 10, 30]  # days for rolling volatility
+    for days in volatility_days:
+        df[f"volatility_{days}d"] = (
+            df["price_log_return"].rolling(window=days).std()
+        )  # rolling volatility
+        df[f"volatility_{days}d_log_return"] = (
+            df[f"volatility_{days}d"].pct_change().apply(lambda x: np.log(1 + x))
+        )
 
-    # Save to CSV
-    out_file = DATA_DIR / f"{SYMBOL}_price_mcap.csv"
+    # past_df = pd.read_csv(DATA_DIR / "BTC_price_mcap.csv", parse_dates=["date"])
+
+    # # After all processing, before concat:
+    # df = df.reset_index()  # 'date' is now a column, not index
+
+    # df = pd.concat([df, past_df])
+    # df = df.drop_duplicates(subset=["date"], keep="first")
+    # df = df.sort_values(by="date").reset_index(drop=True)
+
+    out_file = DATA_DIR / f"{SYMBOL}_price_mcap_2013-2025.csv"
     df[
         [
+            "date",
             "open",
             "high",
             "low",
@@ -89,7 +115,34 @@ if __name__ == "__main__":
             "volumeto",
             "supply",
             "market_cap",
+            "price_log_return",
+            "volumefrom_log_return",
+            "market_cap_log_return",
+            "volatility_5d",
+            "volatility_10d",
+            "volatility_30d",
+            "volatility_5d_log_return",
+            "volatility_10d_log_return",
+            "volatility_30d_log_return",
         ]
-    ].to_csv(out_file)
+    ].to_csv(out_file, index=False)
     print(f"Saved {len(df)} rows to {out_file}")
-print(df.head())
+
+# SYMBOL = "BTC"
+# price_df = pd.read_csv(DATA_DIR / f"{SYMBOL}_price_mcap.csv", parse_dates=["date"])
+# volatility_days = [5, 10, 30]  # days for rolling volatility
+# for days in volatility_days:
+#     price_df[f"volatility_{days}d"] = (
+#         price_df["price_log_return"].rolling(window=days).std()
+#     )  # rolling volatility
+#     price_df[f"volatility_{days}d_log_return"] = (
+#         price_df[f"volatility_{days}d"].pct_change().apply(lambda x: np.log(1 + x))
+#     )
+# # save the updated DataFrame with volatility
+# price_df["volumefrom_log_return"] = (
+#     price_df["volumefrom"].pct_change().apply(lambda x: np.log(1 + x))
+# )
+# price_df["market_cap_log_return"] = (
+#     price_df["market_cap"].pct_change().apply(lambda x: np.log(1 + x))
+# )
+# price_df.to_csv(DATA_DIR / f"{SYMBOL}_price_mcap.csv", index=False)

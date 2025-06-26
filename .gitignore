@@ -124,6 +124,7 @@ celerybeat.pid
 .venv
 env/
 venv/
+venv64/
 ENV/
 env.bak/
 venv.bak/
@@ -166,3 +167,4 @@ cython_debug/
 # data/
 archive/
 scripts/jupyternb/
+scripts/archive/

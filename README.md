@@ -77,9 +77,18 @@ CRYPTOCOMPARE_API = "xxx"
 ## Fetch data 
 ```
 python scripts/fetch_serp.py
+
+python scripts/fetch_fear_greed.py
+
+python scripts/fetch_cryptocompare.py
+```
+
+Coingecko (only data from the past 1 year is available):
+```
+python scripts/fetch_coingecko.py  
 ```
 
 ## Plot and analyse data
 ```
-python scripts/plot_trend_price.py
+python scripts/plot_analyse_bullbear.py
 ```
