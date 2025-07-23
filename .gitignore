@@ -165,6 +165,6 @@ cython_debug/
 
 *key.json
 # data/
-archive/
+# archive/
 # scripts/jupyternb/
-scripts/archive/
+# scripts/archive/
