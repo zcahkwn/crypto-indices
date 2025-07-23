@@ -81,7 +81,7 @@ Fetch Google search data from SerpAPI:
 python scripts/fetch_serp.py
 ```
 
-Fetch fear and greed data:
+Fetch crypto fear and greed data:
 ```
 python scripts/fetch_fear_greed.py
 ```

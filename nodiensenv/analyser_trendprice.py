@@ -92,8 +92,11 @@ class TrendAnalyser:
         # df2[columns_to_shift] = df2[columns_to_shift].shift(lag)
         # compute correlations on smoothed data
         for x, y in self._pairs:
-            df2 = self.data.rolling(smooth_window, center=True).mean()
+            # df2 = self.data.rolling(smooth_window, center=False).mean()
+            # df2[x] = df2[x].shift(lag)
+            df2 = self.data[[x, y]].copy()
             df2[x] = df2[x].shift(lag)
+            df2 = df2.rolling(smooth_window, center=False).mean().dropna()
 
             common = df2[[x, y]].dropna()
             r = common[x].corr(common[y])
@@ -140,8 +143,8 @@ class TrendAnalyser:
         """
         df = self.data.copy()
         # apply smoothing
-        df[x_col] = df[x_col].rolling(smooth_window, center=True).mean()
-        df[y_col] = df[y_col].rolling(smooth_window, center=True).mean()
+        df[x_col] = df[x_col].rolling(smooth_window, center=False).mean()
+        df[y_col] = df[y_col].rolling(smooth_window, center=False).mean()
 
         fig, ax1 = plt.subplots(figsize=(10, 5))
         ax2 = ax1.twinx()
@@ -163,15 +166,17 @@ class TrendAnalyser:
         plt.tight_layout()
         plt.show()
 
-    def plot_scatter(self, x_col: str, y_col: str, window: int, lag: int):
+    def plot_scatter(
+        self, x_col: str, y_col: str, window: int, lag: int, title: str = None
+    ):
         """
         Smooth both series with a centered moving average (window),
         shift x_col by lag, and plot x_col vs y_col as a scatter plot.
         """
         df = self.data.copy()
         # Apply smoothing
-        df[x_col] = df[x_col].rolling(window, center=True).mean()
-        df[y_col] = df[y_col].rolling(window, center=True).mean()
+        df[x_col] = df[x_col].rolling(window, center=False).mean()
+        df[y_col] = df[y_col].rolling(window, center=False).mean()
         # Apply lag to x_col
         df[x_col] = df[x_col].shift(lag)
         # Drop rows with NaN values in either column
@@ -180,6 +185,6 @@ class TrendAnalyser:
         plt.scatter(df_plot[x_col], df_plot[y_col], alpha=0.7)
         plt.xlabel(x_col)
         plt.ylabel(y_col)
-        plt.title(f"Scatter: {x_col} (lag={lag}, window={window}) vs {y_col}")
+        plt.title(title)
         plt.tight_layout()
         plt.show()

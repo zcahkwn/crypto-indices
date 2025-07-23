@@ -6,7 +6,7 @@ from nodiensenv.constants import DATA_DIR
 
 fng = FearAndGreedIndex()
 
-start_date = datetime(2015, 1, 1)
+start_date = datetime(2018, 1, 1)
 
 historical_data = fng.get_historical_data(start_date)
 
@@ -21,7 +21,7 @@ df["fear_greed_log_return"] = (
     df["fear_greed_index"].pct_change().apply(lambda x: np.log(1 + x))
 )
 
-df.to_csv(DATA_DIR / "fear_greed_index_new.csv", index=False)
+df.to_csv(DATA_DIR / "fear_greed_index.csv", index=False)
 
 # # Plotting the Fear and Greed Index
 # import matplotlib.pyplot as plt
