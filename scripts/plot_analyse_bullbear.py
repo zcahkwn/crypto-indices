@@ -22,7 +22,7 @@ trend_df = pd.read_csv(
 )
 
 price_df = pd.read_csv(
-    DATA_DIR / f"{coin_name}_price_mcap_2013-2025.csv", parse_dates=["date"]
+    DATA_DIR / f"price_mcap_{coin_name}_2013-2025.csv", parse_dates=["date"]
 )
 
 price_df["abs_price_log_return"] = price_df["price_log_return"].abs()

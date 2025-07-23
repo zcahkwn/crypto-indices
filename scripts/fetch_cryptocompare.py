@@ -103,7 +103,7 @@ if __name__ == "__main__":
     # df = df.drop_duplicates(subset=["date"], keep="first")
     # df = df.sort_values(by="date").reset_index(drop=True)
 
-    out_file = DATA_DIR / f"{SYMBOL}_price_mcap_2013-2025.csv"
+    out_file = DATA_DIR / f"price_mcap_{SYMBOL}_2013-2025.csv"
     df[
         [
             "date",

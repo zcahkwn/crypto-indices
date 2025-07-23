@@ -5,7 +5,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 
 
 data_paths = {
-    "bitcoin": DATA_DIR / "BTC_price_mcap.csv",
+    "bitcoin": DATA_DIR / "price_mcap_BTC.csv",
     "google_trends": DATA_DIR / "BTC_trend_log_returns_2018-2025.csv",
     "fear_greed": DATA_DIR / "fear_greed_index.csv",
 }
