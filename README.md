@@ -107,6 +107,10 @@ Fetch metals price from LMBA (gold, silver)
 python scripts/fetch_metal_price.py
 ```
 
+VIX index (index_vix.csv) downloaded directly from CBOE website: https://www.cboe.com/tradable_products/vix/vix_historical_data/ 
+
+
+
 ## Plot and analyse data
 
 Plot and calculate correlation (pearson, granger causalty test) between Google search trend and market data 

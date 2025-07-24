@@ -1,5 +1,5 @@
 """
-This script fetches daily gold price data from LBMA, and saves the data to a CSV file.
+This script fetches daily gold price data from LBMA (https://www.lbma.org.uk/prices-and-data/precious-metal-prices#/table), and saves the data to a CSV file.
 """
 
 import datetime as dt, requests, pandas as pd
