@@ -5,8 +5,8 @@ and computes market-cap, price log-return, volumefrom log-return, market-cap log
 CryptoCompare API can only fetch the following crypto: BTC, ETH, LTC, DOGE, BCH.
 
 The date range is: 
-2016-01-01 → today for ETH,
 2013-01-01 → today for BTC,
+2016-01-01 → today for ETH,
 2013-01-01 → today for LTC, 
 2014-01-01 → today for DOGE,
 2018-01-01 → today for BCH.
@@ -27,9 +27,9 @@ if not CRYPTOCOMPARE_API:
 HEADERS = {"authorization": f"Apikey {CRYPTOCOMPARE_API}"}
 BASE_PRICE_URL = "https://min-api.cryptocompare.com/data/v2/histoday"
 BASE_SUPPLY_URL = "https://min-api.cryptocompare.com/data/blockchain/histo/day"
-SYMBOL = "DOGE"
+SYMBOL = "BCH"
 VS_CURRENCY = "USD"
-START_TS = int(datetime(2014, 1, 1).timestamp())
+START_TS = int(datetime(2018, 1, 1).timestamp())
 END_TS = int(datetime.utcnow().timestamp())
 
 
