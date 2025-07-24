@@ -82,11 +82,6 @@ Fetch Google search data from SerpAPI:
 python scripts/fetch_serp.py
 ```
 
-Fetch crypto fear and greed data:
-```
-python scripts/fetch_fear_greed.py
-```
-
 Fetch OHLC data from cyptocompare (only for BTC, ETH, LTC, DOGE, BCH):
 ```
 python scripts/fetch_cryptocompare.py
@@ -97,14 +92,26 @@ Fetch OHLC data from Coingecko (only data from the past 1 year is available)(for
 python scripts/fetch_coingecko.py  
 ```
 
+Fetch crypto fear and greed data:
+```
+python scripts/fetch_fear_greed.py
+```
+
 Fetch US stock market fear and greed index:
 ```
 python scripts/fetch_finhacker.py
 ```
 
+Fetch metals price from LMBA (gold, silver)
+```
+python scripts/fetch_metal_price.py
+```
+
 ## Plot and analyse data
 
-Plot and analyse correlation between Google search trend and market data
+Plot and calculate correlation (pearson, granger causalty test) between Google search trend and market data 
 ```
 python scripts/plot_analyse_bullbear.py
 ```
+
+## Machine learning model

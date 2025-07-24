@@ -1,3 +1,17 @@
+"""
+This script fetches daily OHLCV price data and circulating supply data from CryptoCompare API,
+and computes market-cap, price log-return, volumefrom log-return, market-cap log-return, and rolling volatility. It then saves the data to a CSV file.
+
+CryptoCompare API can only fetch the following crypto: BTC, ETH, LTC, DOGE, BCH.
+
+The date range is: 
+2016-01-01 → today for ETH,
+2013-01-01 → today for BTC,
+2013-01-01 → today for LTC, 
+2014-01-01 → today for DOGE,
+2018-01-01 → today for BCH.
+"""
+
 import os
 import time
 import requests
@@ -13,11 +27,9 @@ if not CRYPTOCOMPARE_API:
 HEADERS = {"authorization": f"Apikey {CRYPTOCOMPARE_API}"}
 BASE_PRICE_URL = "https://min-api.cryptocompare.com/data/v2/histoday"
 BASE_SUPPLY_URL = "https://min-api.cryptocompare.com/data/blockchain/histo/day"
-SYMBOL = "BTC"
+SYMBOL = "DOGE"
 VS_CURRENCY = "USD"
-# Date range: 2013-01-01 → today
-START_TS = int(datetime(2013, 1, 1).timestamp())
-# END_TS = int(datetime(2018, 2, 1).timestamp())
+START_TS = int(datetime(2014, 1, 1).timestamp())
 END_TS = int(datetime.utcnow().timestamp())
 
 
@@ -75,7 +87,7 @@ if __name__ == "__main__":
             date=lambda d: pd.to_datetime(d.time, unit="s"),
             market_cap=lambda d: d.close * d.supply,
         )
-        .set_index("date")
+        .set_index("date", drop=False)
         .sort_index()
     )
     df["price_log_return"] = df["close"].pct_change().apply(lambda x: np.log(1 + x))
@@ -103,7 +115,7 @@ if __name__ == "__main__":
     # df = df.drop_duplicates(subset=["date"], keep="first")
     # df = df.sort_values(by="date").reset_index(drop=True)
 
-    out_file = DATA_DIR / f"price_mcap_{SYMBOL}_2013-2025.csv"
+    out_file = DATA_DIR / f"price_mcap_{SYMBOL}.csv"
     df[
         [
             "date",
@@ -129,7 +141,7 @@ if __name__ == "__main__":
     print(f"Saved {len(df)} rows to {out_file}")
 
 # SYMBOL = "BTC"
-# price_df = pd.read_csv(DATA_DIR / f"{SYMBOL}_price_mcap.csv", parse_dates=["date"])
+# price_df = pd.read_csv(DATA_DIR / f"price_mcap_{SYMBOL}.csv", parse_dates=["date"])
 # volatility_days = [5, 10, 30]  # days for rolling volatility
 # for days in volatility_days:
 #     price_df[f"volatility_{days}d"] = (
@@ -138,7 +150,6 @@ if __name__ == "__main__":
 #     price_df[f"volatility_{days}d_log_return"] = (
 #         price_df[f"volatility_{days}d"].pct_change().apply(lambda x: np.log(1 + x))
 #     )
-# # save the updated DataFrame with volatility
 # price_df["volumefrom_log_return"] = (
 #     price_df["volumefrom"].pct_change().apply(lambda x: np.log(1 + x))
 # )

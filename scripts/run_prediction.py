@@ -8,9 +8,8 @@ from xgboost import XGBClassifier
 coin_name = "BTC"
 
 data_paths = {
-    "bitcoin": DATA_DIR / f"{coin_name}_price_mcap.csv",  # OHLCV data
-    "google": DATA_DIR
-    / f"{coin_name}_trend_log_returns_2019-2025.csv",  # Google trends data
+    "bitcoin": DATA_DIR / f"price_mcap_{coin_name}.csv",  # OHLCV data
+    "google": DATA_DIR / f"trend_log_returns_{coin_name}.csv",  # Google trends data
     "fear_greed": DATA_DIR / "fear_greed_index.csv",  # Fear & Greed index data
 }
 

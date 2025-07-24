@@ -1,3 +1,11 @@
+"""
+This class is used to analyse the correlation between trend and price,
+and the granger causality test for each pair.
+It also plots the graph of trend and price with different lag, and the scatter plot of the pairs. 
+
+This class is used in scripts/plot_analyse_bullbear.py
+"""
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt

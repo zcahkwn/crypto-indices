@@ -1,10 +1,17 @@
+"""
+This script plots different pairs of sentiment (google trend) and transaction
+(price, volume, volatility etc.) data, and scattered plot of the pairs,
+separated by whether it is bull or bear market.
+It also runs correlation coeficient and granger causality test for each pair, with various lag and rolling window.
+"""
+
 import pandas as pd
 import numpy as np
 from functools import reduce
 from nodiensenv.constants import DATA_DIR, FIGURE_DIR
 from nodiensenv.analyser_trendprice import TrendAnalyser
 
-keydates = [
+BTC_keydates = [
     "2013-04-18",
     "2014-01-30",
     "2015-07-07",
@@ -15,20 +22,29 @@ keydates = [
     "2025-06-01",
 ]
 
-coin_name = "BTC"
+ETH_keydates = [
+    "2014-01-30",
+    "2015-07-07",
+    "2018-01-14",
+    "2019-04-02",
+    "2021-05-19",
+    "2023-01-19",
+    "2025-06-01",
+]
+
+coin_name = "ETH"
+keydates = globals()[coin_name + "_keydates"]
 
 trend_df = pd.read_csv(
-    DATA_DIR / f"{coin_name}_trend_log_returns_2013-2025.csv", parse_dates=["date"]
+    DATA_DIR / f"trend_log_returns_{coin_name}.csv", parse_dates=["date"]
 )
 
-price_df = pd.read_csv(
-    DATA_DIR / f"price_mcap_{coin_name}_2013-2025.csv", parse_dates=["date"]
-)
+price_df = pd.read_csv(DATA_DIR / f"price_mcap_{coin_name}.csv", parse_dates=["date"])
+
+# fng_df = pd.read_csv(DATA_DIR / "fear_greed_index.csv", parse_dates=["date"])
 
 price_df["abs_price_log_return"] = price_df["price_log_return"].abs()
 trend_df["abs_trend_log_return"] = trend_df["trend_log_return"].abs()
-
-# fng_df = pd.read_csv(DATA_DIR / "fear_greed_index.csv", parse_dates=["date"])
 
 # price_df["price_log_return"] = (
 #     price_df["close"].pct_change().apply(lambda x: np.log(1 + x))
@@ -48,7 +64,7 @@ trend_df["abs_trend_log_return"] = trend_df["trend_log_return"].abs()
 #         price_df[f"volatility_{days}d"].pct_change().apply(lambda x: np.log(1 + x))
 #     )
 # # save the updated DataFrame
-# price_df.to_csv(DATA_DIR / f"{coin_name}_price_mcap.csv", index=False)
+# price_df.to_csv(DATA_DIR / f"price_mcap_{coin_name}.csv", index=False)
 
 transaction_col = [
     "price_log_return",

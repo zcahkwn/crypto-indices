@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 from nodiensenv.constants import DATA_DIR, FIGURE_DIR
 from nodiensenv.settings import SERP_API
 
-coin = "BTC"
-keywords = ["bitcoin"]
-years = list(range(2013, 2025))  # 2013-2024
+coin = "DOGE"
+keywords = ["dogecoin"]
+years = list(range(2014, 2019))  # 2014-2024
 
 last_chunk_start = "2024-12-31"
 last_chunk_end = "2025-06-04"
@@ -59,6 +59,8 @@ for year in years:
 
         merged = merged.sort_values("date").reset_index(drop=True)
         value_col = keywords[0]
+        # difference between current and previous value
+        merged["trend_diff"] = merged[value_col] - merged[value_col].shift(1)
 
         # log_return = ln(v_t / v_{t-1}). The first row will be NaN.
         merged["trend_log_return"] = np.log(
@@ -99,6 +101,7 @@ if keyword_dfs_2025:
 
     merged_2025 = merged_2025.sort_values("date").reset_index(drop=True)
     value_col = keywords[0]
+    merged_2025["trend_diff"] = merged_2025[value_col] - merged_2025[value_col].shift(1)
     merged_2025["trend_log_return"] = np.log(
         merged_2025[value_col] / merged_2025[value_col].shift(1)
     )
@@ -112,14 +115,18 @@ full_df = pd.concat(chunked_frames, ignore_index=True)
 
 full_df = full_df.sort_values("date").reset_index(drop=True)
 
-mask = (full_df["date"] >= pd.to_datetime("2019-01-01")) & (
-    full_df["date"] <= pd.to_datetime("2025-06-04")
-)
-full_df = full_df.loc[mask].reset_index(drop=True)
+# mask = (full_df["date"] >= pd.to_datetime("2016-01-01")) & (
+#     full_df["date"] <= pd.to_datetime("2025-06-04")
+# )
+# full_df = full_df.loc[mask].reset_index(drop=True)
 
-output_df = full_df.loc[:, ["date", f"{value_col}", "trend_log_return"]]
+output_df = full_df.loc[:, ["date", f"{value_col}", "trend_diff", "trend_log_return"]]
+# for value_col, the value on 30/6 is from the period 31/12 to 30/6 and the value on 31/12 is from the period 31/6 to 31/12
+# This is due to how pandas' merge and concat work:
+# When you concatenate all the chunks (chunked_frames), if multiple chunks have the same date, the first occurrence (from the first chunk appended) will be kept when you later use .drop_duplicates(subset="date") (if you do), or when you sort and reset index, the first occurrence remains.
+# In this code, H1 is processed before H2, so the value for 2020-06-30 from H1 comes first in the combined DataFrame.
 
-output_path = DATA_DIR / f"{coin}_trend_log_returns_2018-2025.csv"
+output_path = DATA_DIR / f"trend_log_returns_{coin}.csv"
 output_df.to_csv(output_path, index=False)
 
-print(f"Saved daily log‐returns to: {output_path}")
+print(f"Saved daily trend_log_returns and trend_diff to: {output_path}")
