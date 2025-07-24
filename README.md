@@ -1,10 +1,10 @@
-# Nodiens Indices
+# Crypto Indices
 
 ## Setup
 
 ```
-git clone https://github.com/zcahkwn/nodiens_index.git
-cd nodiens_index
+git clone https://github.com/zcahkwn/crypto-indices.git
+cd crypto-indices
 ```
 
 ### Give execute permission to your script and then run `setup_repo.sh`
