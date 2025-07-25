@@ -464,21 +464,6 @@ class EnhancedTechnicalAnalyser:
                 for l in [l for l in self.lag_days if l > 0]:
                     self.df[f"{c}_lag{l}"] = self.df[c].shift(l)
 
-            # Add price differences between lags
-            # For example: lag0-lag1, lag1-lag2, etc.
-            for i in range(len(self.lag_days) - 1):
-                current_lag = i
-                next_lag = i + 1
-                self.df[f"btc_price_diff_lag{current_lag}_{next_lag}"] = (
-                    self.df[f"btc_price_lag{current_lag}"]
-                    - self.df[f"btc_price_lag{next_lag}"]
-                )
-
-            # Add rolling means of lagged prices
-            for window in [3, 5]:
-                lag_cols = [f"btc_price_lag{l}" for l in self.lag_days]
-                self.df[f"btc_price_lag_ma{window}"] = self.df[lag_cols].mean(axis=1)
-
             # Add correlation features
             self.df["btc_correlation"] = (
                 self.df["close"]
