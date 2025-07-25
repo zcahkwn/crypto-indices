@@ -24,7 +24,7 @@ or follow the step-by-step instructions below between the two horizontal rules:
 - MacOS / Linux
 
 ```bash
-pyenv local 3.12.3
+pyenv local 3.11.6
 python -m venv venv
 ```
 

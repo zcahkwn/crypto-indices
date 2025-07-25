@@ -134,7 +134,7 @@ class SentimentAnalyzer:
             )
         return df
 
-    def add_lagged_sentiment(self, df, cols=None, lags=range(1, 8)):
+    def add_lagged_sentiment(self, df, cols=None, lags=range(0, 8)):
         """
         Create lagged versions of selected sentiment columns.
         Avoid look-ahead leakage by only shifting backward.
@@ -147,7 +147,10 @@ class SentimentAnalyzer:
             ]
 
         for c in cols:
-            for l in lags:
+            # For lag 0, use the current value with a suffix
+            df[f"{c}_lag0"] = df[c]
+            # For other lags, shift as usual
+            for l in [l for l in lags if l > 0]:
                 df[f"{c}_lag{l}"] = df[c].shift(l)
         return df
 
@@ -370,6 +373,23 @@ class MacroAnalyzer:
         df = self.add_stock_fear_greed_features(df)
         df = self.add_vix_features(df)
         df = self.add_macro_correlation_features(df)
+
+        # Add lagged versions of important macro features
+        macro_cols = [
+            c
+            for c in df.columns
+            if c.startswith(("gold_", "silver_", "vix_", "stock_fear_greed", "macro_"))
+            and not c.endswith(
+                ("_ma_30", "_ma_90", "_ma_7", "_ma_10")
+            )  # Exclude moving averages
+        ]
+        for c in macro_cols:
+            # For lag 0, use the current value with a suffix
+            df[f"{c}_lag0"] = df[c]
+            # For other lags, shift as usual
+            for l in range(1, 8):
+                df[f"{c}_lag{l}"] = df[c].shift(l)
+
         return df
 
 
@@ -379,18 +399,114 @@ class EnhancedTechnicalAnalyser:
         ohlcv_df,
         sentiment_analyzer=None,
         macro_analyzer=None,
-        lag_days=range(1, 8),
+        btc_df=None,
+        is_btc=False,
+        lag_days=range(0, 8),  # Changed to include 0
     ):
         self.df = ohlcv_df.copy()
         self.sentiment_analyzer = sentiment_analyzer
         self.macro_analyzer = macro_analyzer
+        self.btc_df = btc_df
+        self.is_btc = is_btc
         self.lag_days = lag_days
+
+    def add_bitcoin_features(self):
+        """Add Bitcoin-related features for altcoins"""
+        if not self.is_btc and self.btc_df is not None:
+            # Ensure dates are aligned
+            btc_data = self.btc_df[["date", "close"]].copy()
+            btc_data["date"] = pd.to_datetime(btc_data["date"])
+            print(
+                f"Bitcoin data date range: {btc_data['date'].min()} to {btc_data['date'].max()}"
+            )
+
+            # Merge Bitcoin price data
+            df_before = len(self.df)
+            self.df = self.df.merge(
+                btc_data, on="date", how="left", suffixes=("", "_btc")
+            )
+            df_after = len(self.df)
+            if df_after != df_before:
+                print(
+                    f"Warning: Bitcoin merge changed row count from {df_before} to {df_after}"
+                )
+
+            # Bitcoin price features
+            self.df["btc_raw_price"] = self.df[
+                "close_btc"
+            ]  # Keep raw price for reference
+            self.df["btc_price"] = np.log(self.df["close_btc"])  # Log price
+            self.df["btc_ma_7"] = self.df["btc_price"].rolling(7).mean()
+            self.df["btc_ma_30"] = self.df["btc_price"].rolling(30).mean()
+            self.df["btc_volatility"] = self.df["btc_price"].rolling(30).std()
+            self.df["btc_momentum"] = self.df["btc_price"].diff(
+                30
+            )  # Changed to diff for log price
+            self.df["btc_trend"] = (
+                self.df["btc_price"] - self.df["btc_ma_30"]
+            ) * 100  # Changed for log price
+            self.df["btc_log_return"] = self.df[
+                "btc_price"
+            ].diff()  # Simpler with log price
+
+            # Add lagged versions of Bitcoin features
+            btc_cols = [
+                "btc_price",
+                "btc_momentum",
+                "btc_trend",
+                "btc_log_return",
+                "btc_volatility",
+            ]
+            for c in btc_cols:
+                # For lag 0, use the current value with a suffix
+                self.df[f"{c}_lag0"] = self.df[c]
+                # For other lags, shift as usual
+                for l in [l for l in self.lag_days if l > 0]:
+                    self.df[f"{c}_lag{l}"] = self.df[c].shift(l)
+
+            # Add price differences between lags
+            # For example: lag0-lag1, lag1-lag2, etc.
+            for i in range(len(self.lag_days) - 1):
+                current_lag = i
+                next_lag = i + 1
+                self.df[f"btc_price_diff_lag{current_lag}_{next_lag}"] = (
+                    self.df[f"btc_price_lag{current_lag}"]
+                    - self.df[f"btc_price_lag{next_lag}"]
+                )
+
+            # Add rolling means of lagged prices
+            for window in [3, 5]:
+                lag_cols = [f"btc_price_lag{l}" for l in self.lag_days]
+                self.df[f"btc_price_lag_ma{window}"] = self.df[lag_cols].mean(axis=1)
+
+            # Add correlation features
+            self.df["btc_correlation"] = (
+                self.df["close"]
+                .rolling(30)
+                .corr(self.df["btc_raw_price"])  # Use raw price for correlation
+            )
+            self.df["btc_beta"] = (
+                self.df["close"]
+                .pct_change()
+                .rolling(30)
+                .cov(self.df["btc_raw_price"].pct_change())
+                / self.df["btc_raw_price"].pct_change().rolling(30).var()
+            )
+            self.df["btc_relative_strength"] = self.df["close"].pct_change(
+                30
+            ) - self.df["btc_raw_price"].pct_change(30)
+
+            # Drop the temporary btc_price column to avoid confusion
+            self.df = self.df.drop(["close_btc"], axis=1)
 
     def add_core_indicators(self):
         self.add_basic_indicators()
         self.add_advanced_momentum_features()
         self.add_onchain_proxy_features()
         self.add_macro_proxy_features()
+
+        if not self.is_btc:
+            self.add_bitcoin_features()
 
         if self.sentiment_analyzer:
             self.df = self.sentiment_analyzer.add_fear_greed_features(self.df)
@@ -543,8 +659,10 @@ class EnhancedTechnicalAnalyser:
 
 
 class EnhancedRegimeSpecificPredictor:
-    def __init__(self, data_paths, model_params=None):
+    def __init__(self, data_paths, model_params=None, btc_data=None, is_btc=False):
         self.data_paths = data_paths
+        self.btc_data = btc_data
+        self.is_btc = is_btc
         self.bull_model = None
         self.bear_model = None
         self.unified_model = None
@@ -571,49 +689,6 @@ class EnhancedRegimeSpecificPredictor:
             "random_state": 42,
         }
 
-    def enhanced_market_regime_detection(self, df):
-        """Enhanced regime detection"""
-        df["trend_strength_short"] = (df["close"] / df["SMA_20"] - 1) * 100
-        df["trend_strength_medium"] = (df["close"] / df["SMA_50"] - 1) * 100
-        df["volume_trend"] = df["volume_ratio"].rolling(5).mean()
-
-        conditions = [
-            (df["trend_strength_short"] > 2)
-            & (df["trend_strength_medium"] > 0)
-            & (df["volume_trend"] > 1.05),
-            (df["trend_strength_short"] < -2) & (df["trend_strength_medium"] < 0),
-            (df["trend_strength_short"].abs() <= 2),
-        ]
-
-        choices = ["bull", "bear", "neutral"]
-        df["detailed_regime"] = np.select(conditions, choices, default="neutral")
-        df["bull_market"] = (df["detailed_regime"] == "bull").astype(int)
-
-        return df
-
-    def create_enhanced_bull_market_target(self):
-        """Create target predicting bull market within next 7 days"""
-        print("Creating enhanced bull market target...")
-
-        if "detailed_regime" not in self.feature_df.columns:
-            self.feature_df = self.enhanced_market_regime_detection(self.feature_df)
-
-        self.feature_df["bull_next_week"] = 0
-
-        for i in range(len(self.feature_df)):
-            end_idx = min(i + 8, len(self.feature_df))
-            future_window = self.feature_df["detailed_regime"].iloc[i + 1 : end_idx]
-
-            if "bull" in future_window.values or "strong_bull" in future_window.values:
-                self.feature_df.at[self.feature_df.index[i], "bull_next_week"] = 1
-
-        self.feature_df["target"] = self.feature_df["bull_next_week"]
-
-        target_balance = self.feature_df["target"].mean()
-        print(f"Bull market next week target balance: {target_balance:.3f}")
-
-        return self
-
     def create_features(self):
         """Create enhanced features with sentiment analysis"""
         print("\nLoading and merging data sources...")
@@ -621,7 +696,7 @@ class EnhancedRegimeSpecificPredictor:
         # Load coin data
         coin_df = pd.read_csv(self.data_paths["coin"], parse_dates=["date"])
         print(
-            f"coin data shape: {coin_df.shape}, Date range: {coin_df['date'].min()} to {coin_df['date'].max()}"
+            f"Coin data shape: {coin_df.shape}, Date range: {coin_df['date'].min()} to {coin_df['date'].max()}"
         )
 
         # Load sentiment data
@@ -700,141 +775,160 @@ class EnhancedRegimeSpecificPredictor:
 
         print("\nCalculating technical indicators and features...")
         # Calculate enhanced technical indicators
-        ta = EnhancedTechnicalAnalyser(coin_df, sentiment_analyzer, macro_analyzer)
+        ta = EnhancedTechnicalAnalyser(
+            coin_df,
+            sentiment_analyzer,
+            macro_analyzer,
+            btc_df=self.btc_data,
+            is_btc=self.is_btc,
+        )
         ta_df = ta.add_core_indicators()
         print(f"Feature DataFrame shape after indicators: {ta_df.shape}")
 
         # Merge all features
         self.feature_df = ta_df.copy()
 
-        # Enhanced regime detection
-        self.feature_df = self.enhanced_market_regime_detection(self.feature_df)
-        print(
-            f"Feature DataFrame shape after regime detection: {self.feature_df.shape}"
-        )
+    def enhanced_market_regime_detection(self, df):
+        """Enhanced regime detection"""
+        df["trend_strength_short"] = (df["close"] / df["SMA_20"] - 1) * 100
+        df["trend_strength_medium"] = (df["close"] / df["SMA_50"] - 1) * 100
+        df["volume_trend"] = df["volume_ratio"].rolling(5).mean()
 
-        # Create enhanced target
-        self.create_enhanced_bull_market_target()
-        print(f"Feature DataFrame shape after target creation: {self.feature_df.shape}")
-
-        # Handle NaN values more gracefully
-        # First, identify essential columns that must not have NaN values
-        essential_columns = [
-            "date",
-            "close",
-            "target",  # Basic price and target
-            "RSI_14",
-            "volume_ratio",
-            "price_vs_sma",  # Core technical indicators
-            "volatility_20",
-            "price_momentum_5d",  # Core volatility and momentum
-            "detailed_regime",  # Regime information
+        conditions = [
+            (df["trend_strength_short"] > 2)
+            & (df["trend_strength_medium"] > 0)
+            & (df["volume_trend"] > 1.05),
+            (df["trend_strength_short"] < -2) & (df["trend_strength_medium"] < 0),
+            (df["trend_strength_short"].abs() <= 2),
         ]
 
-        # Drop rows where essential columns have NaN values
-        original_shape = self.feature_df.shape
-        self.feature_df = self.feature_df.dropna(subset=essential_columns)
-        print(f"\nAfter dropping NaN in essential columns:")
-        print(f"Shape changed from {original_shape} to {self.feature_df.shape}")
-        print(f"Rows removed: {original_shape[0] - self.feature_df.shape[0]}")
+        choices = ["bull", "bear", "neutral"]
+        df["detailed_regime"] = np.select(conditions, choices, default="neutral")
+        df["bull_market"] = (df["detailed_regime"] == "bull").astype(int)
 
-        # For non-essential features, fill NaN values with appropriate methods
-        # Moving averages and rolling calculations - forward fill then backward fill
-        rolling_cols = [
-            col
-            for col in self.feature_df.columns
-            if any(x in col for x in ["_ma_", "_correlation", "momentum", "trend"])
-        ]
-        self.feature_df[rolling_cols] = (
-            self.feature_df[rolling_cols].fillna(method="ffill").fillna(method="bfill")
-        )
+        return df
 
-        # Handle categorical columns first
-        categorical_cols = self.feature_df.select_dtypes(include=["category"]).columns
-        for col in categorical_cols:
-            # Get existing categories
-            categories = self.feature_df[col].cat.categories
-            # Add a default category for NaN values if needed
-            if "neutral" in categories:
-                fill_value = "neutral"
-            elif "normal_vol" in categories:
-                fill_value = "normal_vol"
-            else:
-                fill_value = categories[0]  # Use first category as default
-            # Fill NaN values
-            self.feature_df[col] = self.feature_df[col].fillna(fill_value)
+    def create_enhanced_bull_market_target(self):
+        """Create target predicting bull market within next 7 days"""
+        print("Creating enhanced bull market target...")
 
-        # Binary indicators - fill with 0 (excluding categorical columns)
-        binary_cols = [
-            col
-            for col in self.feature_df.columns
-            if any(x in col for x in ["extreme_", "_regime", "_contrarian"])
-            and col not in categorical_cols
-        ]
-        self.feature_df[binary_cols] = self.feature_df[binary_cols].fillna(0)
+        if "detailed_regime" not in self.feature_df.columns:
+            self.feature_df = self.enhanced_market_regime_detection(self.feature_df)
 
-        # Log returns - fill with 0
-        log_return_cols = [
-            col for col in self.feature_df.columns if "log_return" in col
-        ]
-        self.feature_df[log_return_cols] = self.feature_df[log_return_cols].fillna(0)
+        self.feature_df["bull_next_week"] = 0
 
-        # Check remaining NaN values
-        remaining_nans = self.feature_df.isna().sum()
-        if remaining_nans.any():
-            print("\nRemaining NaN counts in columns:")
-            print(
-                remaining_nans[remaining_nans > 0].sort_values(ascending=False).head(10)
-            )
+        for i in range(len(self.feature_df)):
+            end_idx = min(i + 8, len(self.feature_df))
+            future_window = self.feature_df["detailed_regime"].iloc[i + 1 : end_idx]
 
-            # Fill any remaining NaN values with 0 (excluding categorical columns)
-            numeric_cols = self.feature_df.select_dtypes(
-                include=["float64", "int64"]
-            ).columns
-            self.feature_df[numeric_cols] = self.feature_df[numeric_cols].fillna(0)
-            print("\nFilled all remaining numeric NaN values with 0")
+            if "bull" in future_window.values or "strong_bull" in future_window.values:
+                self.feature_df.at[self.feature_df.index[i], "bull_next_week"] = 1
 
-        # Handle infinite values and extremely large numbers
-        numeric_cols = self.feature_df.select_dtypes(
-            include=["float64", "int64"]
-        ).columns
-        for col in numeric_cols:
-            # Replace infinite values with NaN first
-            self.feature_df[col] = self.feature_df[col].replace(
-                [np.inf, -np.inf], np.nan
-            )
+        self.feature_df["target"] = self.feature_df["bull_next_week"]
 
-            # Calculate reasonable bounds for each feature
-            if (
-                self.feature_df[col].notna().any()
-            ):  # Only process if we have any non-NaN values
-                q1 = self.feature_df[col].quantile(0.01)
-                q99 = self.feature_df[col].quantile(0.99)
-                iqr = q99 - q1
-                lower_bound = q1 - 3 * iqr
-                upper_bound = q99 + 3 * iqr
+        target_balance = self.feature_df["target"].mean()
+        print(f"Bull market next week target balance: {target_balance:.3f}")
 
-                # Clip values to bounds
-                self.feature_df[col] = self.feature_df[col].clip(
-                    lower_bound, upper_bound
-                )
-
-                # Fill any remaining NaN values with median for that column
-                median_val = self.feature_df[col].median()
-                self.feature_df[col] = self.feature_df[col].fillna(median_val)
-
-        # Verify no infinite values remain
-        inf_check = (
-            np.isinf(self.feature_df.select_dtypes(include=["float64", "int64"]))
-            .sum()
-            .sum()
-        )
-        if inf_check > 0:
-            print("\nWarning: Some infinite values remain. Replacing with 0...")
-            self.feature_df = self.feature_df.replace([np.inf, -np.inf], 0)
-
-        print(f"\nFinal Feature DataFrame shape: {self.feature_df.shape}")
         return self
+
+    def create_features(self):
+        """Create enhanced features with sentiment analysis"""
+        print("\nLoading and merging data sources...")
+
+        # Load coin data
+        coin_df = pd.read_csv(self.data_paths["coin"], parse_dates=["date"])
+        print(
+            f"Coin data shape: {coin_df.shape}, Date range: {coin_df['date'].min()} to {coin_df['date'].max()}"
+        )
+
+        # Load sentiment data
+        fear_greed_df = None
+        google_trends_df = None
+        gold_df = None
+        silver_df = None
+        stock_fear_greed_df = None
+        vix_df = None
+
+        try:
+            if "fear_greed" in self.data_paths:
+                fear_greed_df = pd.read_csv(
+                    self.data_paths["fear_greed"], parse_dates=["date"]
+                )
+                print(
+                    f"Crypto Fear & Greed data shape: {fear_greed_df.shape}, Date range: {fear_greed_df['date'].min()} to {fear_greed_df['date'].max()}"
+                )
+        except Exception as e:
+            print(f"Could not load fear/greed data: {e}")
+
+        try:
+            if "google_trends" in self.data_paths:
+                google_trends_df = pd.read_csv(
+                    self.data_paths["google_trends"], parse_dates=["date"]
+                )
+                print(
+                    f"Google Trends data shape: {google_trends_df.shape}, Date range: {google_trends_df['date'].min()} to {google_trends_df['date'].max()}"
+                )
+        except Exception as e:
+            print(f"Could not load Google Trends data: {e}")
+
+        try:
+            if "gold" in self.data_paths:
+                gold_df = pd.read_csv(self.data_paths["gold"], parse_dates=["date"])
+                print(
+                    f"Gold price data shape: {gold_df.shape}, Date range: {gold_df['date'].min()} to {gold_df['date'].max()}"
+                )
+        except Exception as e:
+            print(f"Could not load gold data: {e}")
+
+        try:
+            if "silver" in self.data_paths:
+                silver_df = pd.read_csv(self.data_paths["silver"], parse_dates=["date"])
+                print(
+                    f"Silver price data shape: {silver_df.shape}, Date range: {silver_df['date'].min()} to {silver_df['date'].max()}"
+                )
+        except Exception as e:
+            print(f"Could not load silver data: {e}")
+
+        try:
+            if "stock_fear_greed" in self.data_paths:
+                stock_fear_greed_df = pd.read_csv(
+                    self.data_paths["stock_fear_greed"], parse_dates=["date"]
+                )
+                print(
+                    f"Stock Fear & Greed data shape: {stock_fear_greed_df.shape}, Date range: {stock_fear_greed_df['date'].min()} to {stock_fear_greed_df['date'].max()}"
+                )
+        except Exception as e:
+            print(f"Could not load stock fear/greed data: {e}")
+
+        try:
+            if "vix" in self.data_paths:
+                vix_df = pd.read_csv(self.data_paths["vix"])
+                vix_df["date"] = pd.to_datetime(vix_df["DATE"])
+                vix_df = vix_df.drop("DATE", axis=1)
+                print(
+                    f"VIX data shape: {vix_df.shape}, Date range: {vix_df['date'].min()} to {vix_df['date'].max()}"
+                )
+        except Exception as e:
+            print(f"Could not load VIX data: {e}")
+
+        # Create analyzers
+        sentiment_analyzer = SentimentAnalyzer(fear_greed_df, google_trends_df)
+        macro_analyzer = MacroAnalyzer(gold_df, silver_df, stock_fear_greed_df, vix_df)
+
+        print("\nCalculating technical indicators and features...")
+        # Calculate enhanced technical indicators
+        ta = EnhancedTechnicalAnalyser(
+            coin_df,
+            sentiment_analyzer,
+            macro_analyzer,
+            btc_df=self.btc_data,
+            is_btc=self.is_btc,
+        )
+        ta_df = ta.add_core_indicators()
+        print(f"Feature DataFrame shape after indicators: {ta_df.shape}")
+
+        # Merge all features
+        self.feature_df = ta_df.copy()
 
     def select_robust_features(self):
         """Enhanced feature selection including log return sentiment"""
@@ -914,6 +1008,18 @@ class EnhancedRegimeSpecificPredictor:
             ],
         }
 
+        if not self.is_btc:
+            feature_groups["bitcoin_features"] = [
+                "btc_price",
+                "btc_momentum",
+                "btc_trend",
+                "btc_log_return",
+                "btc_volatility",
+                "btc_correlation",
+                "btc_beta",
+                "btc_relative_strength",
+            ]
+
         # Get lagged features for each group
         for group_name, features in feature_groups.items():
             lagged_features = []
@@ -941,6 +1047,10 @@ class EnhancedRegimeSpecificPredictor:
                     )
                     if is_numeric:
                         numeric_features.append(feature)
+                    else:
+                        print(
+                            f"Skipping non-numeric feature: {feature} (type: {dtype})"
+                        )
             if numeric_features:
                 numeric_features_by_group[group_name] = numeric_features
                 print(
@@ -962,6 +1072,7 @@ class EnhancedRegimeSpecificPredictor:
             "stock_sentiment": 2,
             "market_volatility": 2,
             "macro_combined": 2,
+            "bitcoin_features": 3,  # If present
         }
 
         print("\nSelecting features from each group:")
@@ -969,26 +1080,56 @@ class EnhancedRegimeSpecificPredictor:
             if not features:
                 continue
 
+            # Create a clean subset of features for selection
+            X = self.feature_df[features].copy()
+            y = self.feature_df["target"].copy()
+
+            # Handle any remaining NaN values
+            for col in X.columns:
+                if X[col].isna().any():
+                    print(f"Handling NaN values in {col}")
+                    # Replace inf/-inf with NaN
+                    X[col] = X[col].replace([np.inf, -np.inf], np.nan)
+                    # Fill NaN with median
+                    X[col] = X[col].fillna(X[col].median())
+
+            # Verify no NaN values remain
+            if X.isna().any().any():
+                print(
+                    f"Warning: NaN values still present in {group_name} group after handling"
+                )
+                # Drop rows with NaN as a last resort
+                clean_idx = ~X.isna().any(axis=1)
+                X = X[clean_idx]
+                y = y[clean_idx]
+
+            if len(X) == 0:
+                print(
+                    f"No valid data remaining for {group_name} group after NaN handling"
+                )
+                continue
+
             # Calculate mutual information scores
-            mi_scores = mutual_info_classif(
-                self.feature_df[features], self.feature_df["target"], random_state=42
-            )
+            try:
+                mi_scores = mutual_info_classif(X, y, random_state=42)
+                # Create feature importance ranking
+                feature_importance = pd.Series(mi_scores, index=features)
+                feature_importance = feature_importance.sort_values(ascending=False)
 
-            # Create feature importance ranking
-            feature_importance = pd.Series(mi_scores, index=features)
-            feature_importance = feature_importance.sort_values(ascending=False)
+                # Select top N features from this group
+                n_select = min_features_per_group.get(group_name, 2)
+                top_features = feature_importance.head(n_select).index.tolist()
 
-            # Select top N features from this group
-            n_select = min_features_per_group.get(group_name, 2)
-            top_features = feature_importance.head(n_select).index.tolist()
+                print(f"\n{group_name} - Top {n_select} features:")
+                for i, (feature, score) in enumerate(
+                    feature_importance.head(n_select).items(), 1
+                ):
+                    print(f"{i}. {feature}: {score:.4f}")
 
-            print(f"\n{group_name} - Top {n_select} features:")
-            for i, (feature, score) in enumerate(
-                feature_importance.head(n_select).items(), 1
-            ):
-                print(f"{i}. {feature}: {score:.4f}")
-
-            selected_features.extend(top_features)
+                selected_features.extend(top_features)
+            except Exception as e:
+                print(f"Error selecting features for {group_name} group: {str(e)}")
+                continue
 
         self.unified_features = selected_features
         print(f"\nTotal selected features: {len(self.unified_features)}")
@@ -1918,6 +2059,16 @@ class EnhancedRegimeSpecificPredictor:
                             "volatility_10d",
                             "volatility_30d",
                             "volatility_20",
+                        ],
+                        "Bitcoin_Features": [
+                            "btc_price",
+                            "btc_momentum",
+                            "btc_trend",
+                            "btc_log_return",
+                            "btc_volatility",
+                            "btc_correlation",
+                            "btc_beta",
+                            "btc_relative_strength",
                         ],
                         "Sentiment_FearGreed": [
                             "fear_greed_index",
